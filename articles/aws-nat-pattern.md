@@ -24,7 +24,7 @@ AWS VPCにて、NATを確立するために以下のパターンがあります�
 
 ### NATゲートウェイ
 
-![](/images/aws-nat/nat-gateway.png)  
+![](https://storage.googleapis.com/zenn-user-upload/bv17wikfjgrkzt80cgd1vpzkawsl)
 
 NATゲートウェイはAWSマネージドサービスであるためメンテナンス不要で、トラフィックに応じた十分な性能およびMultiAZ冗長性も確保されます。
 
@@ -34,7 +34,7 @@ NATゲートウェイはAWSマネージドサービスであるためメンテ�
 
 ### NATインスタンス(EC2)
 
-![](/images/aws-nat/nat-instance.png)  
+![](https://storage.googleapis.com/zenn-user-upload/rq9vag5awe37q98vg391oj528xp6)
 
 NATインスタンスは、NAT用AMIで作成したEC2インスタンスをパブリックサブネットに配置します。
 
