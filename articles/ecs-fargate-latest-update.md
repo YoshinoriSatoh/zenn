@@ -3,8 +3,25 @@ title: "ECS FargateプラットフォームバージョンのLATESTが1.4.0へ"
 emoji: "😸" 
 type: "tech" 
 topics: ["aws", "ecs", "fargate"] 
-published: false 
+published: true 
 ---
+
+## 訂正
+本記事を最初に投稿した時点では、私の理解が誤っており以下のような記載をしていました。
+
+「ECS Fargate PV 1.4.0では、どんなタスクにも必ずVPCエンドポイントが必要となる」
+
+正しい理解は以下となります。
+
+「ECS Fargateでは、プライベートサブネットで実行され、かつインターネットへのアウトバウンドがない場合に、VPCエンドポイントが必要であり、PV1.4.0では設定が必要なVPCエンドポイントが増えた」
+
+誤った知識を投稿してしまい申し訳ありませんでしたm(_ _)m
+
+そして、そもそももっとわかりやすい解説記事がありましたm(_ _)m
+
+https://dev.classmethod.jp/articles/fargate_pv14_vpc_endpoint/
+
+改めて検証し、理解ができましたので、上記や他の記事と同じような内容になってしまいますが、得られた理解や知識を記述したいと思います。
 
 ## ECS Fargate PV LATESTの変更アナウンス
 AWSより以下アナウンスがありました。
@@ -12,6 +29,7 @@ AWSより以下アナウンスがありました。
 ```
 2021 年 3 月 8 日より、AWS Fargate はプラットフォームバージョン (PV) LATEST フラグを変更して、PV 1.3.0 [1] ではなく PV 1.4.0 に解決します。
 PV 1.4.0 は、2020 年 4 月に開始され、多くの新機能や変更点を提供しています [2]。パブリックインターネットアクセスを持たない VPC でタスクを実行している場合は、アクションが必要です。
+ECR [3]、Secrets Manager [4]、およびパラメータストア [5] の VPC エンドポイントをそれぞれ作成する必要があります。
 ```
 
 ECS Fargateでは、プラットフォームバージョンというものが存在します。
@@ -20,32 +38,41 @@ ECS Fargateでは、プラットフォームバージョンというものが存
 
 PV1.4.0自体は、結構前からサポートされていましたが、これまでLATESTが1.3.0のままだったので、なんだか違和感がありました。
 
-## PV1.3.0と1.4.0の互換性
+## VPCエンドポイントの設定が必要な状況
 
-PV1.3.0と1.4.0では、以下の点で**互換性がありません。**
+インターネットへのアウトバウンドを持たないサブネットでタスクを起動する場合には、VPCエンドポイントが必要です。
 
-* ECR VPCエンドポイントが必要 (ECRを使用する場合)
-* Secrets Manager VPCエンドポイントが必要 (Secrets Managerを使用する場合)
-* Systems Manager VPCエンドポイントが必要 (Systems Managerを使用する場合)
+パプリックサブネットや、NATを構成しているプライベートサブネットでは、VPCエンドポイントは必須ではありません。
 
-上記要件を満たせていないと、1.4.0にプラットフォームバージョンが上がった際に、タスクが起動できなくなります。
+（勿論、不要なトラフィックをインターネットに流さないために、VPCエンドポイントを設定しても構いません）
 
-私は普段ECSを構築する際に、なかなかVPCエンドポイントまでは構築していなかったので、試しに1.4.0に上げてみたところ、タスクの起動に失敗してしまいました。
+タスク起動時に以下の通信が発生するため、それぞれに応じたVPCエンドポイントが必要です。
 
-## PV1.4.0に更新するべきか
-VPCエンドポイントは作成しているだけで、料金が発生します。
+* ECRからDockerイメージPULL
+* Cloudwatch Logsへログ出力
+* タスク定義からParameterStore参照
+* タスク定義からSecretsManager参照
 
-あまり使っていない場合でも、一つのVPCエンドポイントにつき大体10USD程度かかります。
+## PV1.3.0と1.4.0で設定が必要なVPCエンドポイントの違い
 
-さらに、一つだけでなく複数のVPCエンドポイントが必要かつ、VPC毎にエンドポイント群を作成する必要があると考えると、VCPエンドポイントのコストが結構かさんできます。
+PV1.4.0では、ECRからDockerイメージをPULLするために必要なVPCエンドポイントが増えています。
 
-NLBを使用したいなど、PV1.4.0でなければ満たせない要件がある場合には、これらのコストも予め見積もっておく必要があります。
+| 通信 | PV 1.3.0 | PV 1.4.0 |
+| --- | --- | --- |
+| ECRからDockerイメージPULL | s3(Gateway) <br /> ecr.dkr | s3(Gateway) <br /> ecr.dkr <br /> **ecr.api** |
+| Cloudwatch Logsへログ出力 | logs | logs | 
+| タスク定義からParameterStore参照 | ssm | ssm |
+| タスク定義からSecretsManager参照 | secretsmanager | secretsmanager |
 
-1.3.0で十分要件が満たせるのであれば、現状では1.4.0にこだわる必要はなさそうに思います。
+`ecr.api`のVPCエンドポイントがない状態で、PV1.4.0にてタスク起動しようとすると、以下のようなエラーになります。
+
+```
+ResourceInitializationError: unable to pull secrets or registry auth: execution resource retrieval failed: unable to retrieve ecr registry auth: service call has been retried 1 time(s): RequestError: send request failed caused by: Post https://api.ecr....
+```
 
 ## 参考
-AWS Fargate プラットフォームのバージョン
 https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/userguide/platform_versions.html
 
-AWS Fargate for Amazon ECS が Network Load Balancer を使用した UDP ロードバランシングのサポートを開始
 https://aws.amazon.com/jp/about-aws/whats-new/2020/07/aws-fargate-for-amazon-ecs-now-supports-udp-load-balancing-with-network-load-balancer/
+
+https://dev.classmethod.jp/articles/fargate_pv14_vpc_endpoint/
