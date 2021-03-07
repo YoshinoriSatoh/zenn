@@ -8,7 +8,7 @@ published: true
 ## 概要＆背景
 以下記事にて、ECS FargateでVPCエンドポイントが必要となる状況について、誤った理解をしていたこともあり、改めてECS FargateとVPCエンドポイントの関係や動作検証をしてみました。
 
-https://zenn.dev/articles/ecs-fargate-latest-update/
+https://zenn.dev/yoshinori_satoh/articles/ecs-fargate-latest-update
 
 また、既に十分解説されている記事も存在していますので、そちらもご参照ください。
 
