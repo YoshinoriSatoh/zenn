@@ -44,6 +44,8 @@ EKSのAPIサーバは、パブリック・プライベートもしくはその�
 ## クラスター毎のkubectl専用インスタンス
 検討した結果、泥臭い手法ではありますが、以下のようにEKSクラスター毎にkubectl専用のEC2インスタンス(以下kubectlインスタンス)を構築するようにしてみました。
 
+![](https://storage.googleapis.com/zenn-user-upload/knukrvuos0w4vlk833pb90vxmb9c)
+
 要点は以下の通りです。
 
 * kubectlインスタンスは対応する一つのクラスターへのコンテキストしか持たない
