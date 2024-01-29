@@ -109,7 +109,7 @@ oryのOSSは、各種機能の実装やパスワードポリシーに関して�
 
 kratosを使用したユーザー登録からログイン、セッションの取得、APIへの受け渡しおよびAPI側でのセッションの取り扱いについて、概要を描いてみました。
 
-![](/images/kratos_usecase_overview/kratos_usecase_overview.png)
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kartos_usecase_overview/kratos%20usecase%20overview.png?raw=true)
 
 以下の流れで描いています。
 1. ユーザー登録
@@ -398,7 +398,7 @@ please input code emailed to you:
 
 ここで、ブラウザで http://localhost:4436 にアクセスしてメールを確認します。
 
-![](/images/kratos_usecase_overview/mailslurper.png)
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kartos_usecase_overview/mailslurper.png?raw=true)
 
 メールアドレス検証のための検証コードが送信されています。
 
