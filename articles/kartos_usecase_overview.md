@@ -1,12 +1,17 @@
----  
-title: Webアプリの認証APIとしてory kratos(self-hosting)とユースケース概要
+---
+title: ID管理 & 認証APIの ory kratos(self-hosting)の紹介
 emoji: "📦" 
 type: "tech" 
 topics: ["ory", "kratos", "authentication"] 
 published: false
 ---  
 
-## 認証APIをどう選定するか
+## 本記事の概要
+Webアプリに必要不可欠なIdentity管理(ユーザー管理)および認証APIの導入に、どのような選択肢があるのか、その中でもory kratos(self-hosting)の特徴、選択する理由について記載します。
+
+ory kratosの利用イメージ
+
+## ID管理/認証APIの選択肢
 Webアプリケーションを開発するにあたり、（普通は）認証は必須要件です。
 
 認証を実装するために、いろいろ選択肢があると思います。
@@ -63,7 +68,7 @@ Auth0なんかは、利用についてもドキュメントが充実しており
 
 OSSを利用するため、IDaaSのようなコストもかかることなく、インフラ費用としてはサーバー稼働費用のみとなります。
 
-コスト面、データ保管場所、システム構成やスケーリングの観点から、セルフホスト型のOSSを採用したいケースは多いのかなと思います。
+コスト面、データ保管場所、システム構成やスケーリングの観点から、セルフホスト型のOSSを採用したいケースは多いのかなと思います。　
 
 ## セルフホスト型のOSS認証APIとしてory kratos (self-hosting)
 
@@ -76,22 +81,36 @@ OSSを利用するため、IDaaSのようなコストもかかることなく、
 
 ory kratosはクラウドサービス版と、OSSのセルフホスト版の2つが存在します。
 
+### kratosの機能
 kratosは、ID管理および認証に必要な一通りのAPI/機能を提供します。
 
 * ユーザー登録、ログイン、メールアドレス等の検証、アカウント復旧、ユーザープロファイル設定
-* 本人検証やアカウント復旧/検証時のメール送信等も内包
-* MFA対応
-* ソーシャルサインイン対応
+* 本人検証やアカウント復旧/検証時のメール送信 (テンプレートによるカスタムも可能)
+* MFA
+* ソーシャルサインイン
 * アドミンによるユーザー管理
 
+フレームワークに内蔵されている認証機能と同等以上の機能を持っていると思います。
+
+### kratosのセキュリティ
+kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、SelfService flowと呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。
+
+SelfService flowに従うことで、各種攻撃やCSRFに対するセキュリティが確保されます。
+
+詳細は[こちら](https://www.ory.sh/docs/kratos/self-service)を参照してください。
+
+その他、各種機能の実装やパスワードポリシーに関して[NISTのデジタルIDガイドラインに準拠しています。](https://www.ory.sh/docs/kratos/concepts/security))
+
 ### kratosのスケーリング
-golangで実装されているため、パフォーマンスに優れ、スケーリングしやすいのが特徴です。
+kartosは、DBにのみ状態を持っているため、コンテナの水平スケーリングによってスケールアウトが可能です。(https://www.ory.sh/docs/self-hosted/operations/scalability)
 
-DBにのみ状態を持っているため、基本的にはサーバー台数を増やすだけでスケールアウト可能です。
+DBの負荷については気にする必要はありますが、kratosのDBのみを増強するなど、認証部分のみをスケールアウト/スケールアップすることも可能です。
 
-DBの負荷については気にする必要はありますが、前述のようにフレームワーク依存しているわけではないため、kratosのDBのみを増強するなど、認証部分のみのスケールアップ/スケールアウトがしやすい構成です。
+DBは、MySQL、PostgreSQL、CockroachDBをサポートしています。
 
-### IAPを構成しやすい
+CockroachDBについては詳しくないですが、もしCockroachDBを導入できるのであれば、DBもスケーリングできるため、認証部分を細かくスケーリングできるようになりそうです。
+
+### IAPの構成要素としてのkratos
 oryは、kratosの他に幾つかのOSSを開発しており、その中の一つにory oathkeeperというプロキシがあります。
 
 正確には、Identity & Access Proxy (IAP)というもので、リクエストが認証されているかどうかを検査し、認証されていれば後段のAPIへリクエストを転送するような機能を持っています。
@@ -100,13 +119,7 @@ oathkeeper自体がIAPとして振る舞うこともできますし、Traefikの
 
 このように、kratosと相性が良いOSSでIAPを構成しやすいです。
 
-### NISTのデジタルIDガイドラインに準拠
-oryのOSSは、各種機能の実装やパスワードポリシーに関しても[NISTのデジタルIDガイドラインに準拠しています。](https://www.ory.sh/docs/kratos/concepts/security))
-
-デジタルIDガイドラインを詳細に理解できてはいないのですが、セキュリティ要件で何かしらの回答を求められた際に、NISTに準拠しているというのは安心感がありますね。
-
-## kratosの利用イメージ
-
+## kratos使用イメージ
 kratosを使用したユーザー登録からログイン、セッションの取得、APIへの受け渡しおよびAPI側でのセッションの取り扱いについて、概要を描いてみました。
 
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kartos_usecase_overview/kratos_usecase_overview.png?raw=true)
@@ -122,15 +135,6 @@ kratosを使用したユーザー登録からログイン、セッションの�
 kartosは、Webアプリ(ブラウザ)およびネイティブアプリからの利用が想定されています。
 
 Webアプリは、サーバーサイドでHTMLをレンダリングする方式(例えばNode.jsやPHP、Javaのフレームワーク等でレンダリング)と、SPAからの利用が想定されています。
-
-### self-service flowについて
-kratosでは、ユーザー自身でユーザー登録やログイン、アカウント復旧といった機能を備えています。
-
-これらをkratosでは、self-service flowと呼ばれており、各種操作を実施する前にあらかじめflowを初期化し、このflowに対して各種操作を実施するような仕様になっています。
-
-この仕様は、NISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことで、self-service flowに従うことで、各種攻撃やCSRFに対するセキュリティが向上するとのことです。
-
-詳細は[こちら](https://www.ory.sh/docs/kratos/self-service)を参照してください。
 
 ### ユーザー登録
 ユーザー自身でのユーザー登録機能を備えています。
@@ -301,7 +305,7 @@ traitsやmetadataの
 }
 ```
 
-## kratosと周辺のアーキテクチャ設計のTips
+## kratosと周辺アーキテクチャ設計のTips
 
 ### kratos IdentityとアプリケーションDBのデータとの紐付け
 kratosとアプリケーションAPIではDBが分かれています。
