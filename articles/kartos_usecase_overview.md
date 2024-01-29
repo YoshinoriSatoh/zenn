@@ -109,7 +109,7 @@ oryのOSSは、各種機能の実装やパスワードポリシーに関して�
 
 kratosを使用したユーザー登録からログイン、セッションの取得、APIへの受け渡しおよびAPI側でのセッションの取り扱いについて、概要を描いてみました。
 
-![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kartos_usecase_overview/kratos_usecase_overview.png)
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kartos_usecase_overview/kratos_usecase_overview.png?raw=true)
 
 以下の流れで描いています。
 1. ユーザー登録
