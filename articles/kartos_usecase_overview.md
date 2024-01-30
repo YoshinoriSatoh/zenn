@@ -3,7 +3,7 @@ title: ID管理 & 認証APIの ory kratos(self-hosting)の紹介
 emoji: "📦" 
 type: "tech" 
 topics: ["ory", "kratos", "authentication"] 
-published: false
+published: true
 ---  
 
 ## 本記事の概要
