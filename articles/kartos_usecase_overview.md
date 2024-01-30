@@ -112,11 +112,9 @@ kratosは、ID管理および認証に必要な一通りのAPI/機能を提供�
 フレームワークに内蔵されている認証機能と同等以上の機能を持っていると思います。
 
 ### kratosのセキュリティ
-kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、SelfService flowと呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。
+kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、[SelfService flowと呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。](https://www.ory.sh/docs/kratos/self-service)
 
 SelfService flowに従うことで、各種攻撃やCSRFに対するセキュリティが確保されます。
-
-詳細は[こちら](https://www.ory.sh/docs/kratos/self-service)を参照してください。
 
 その他、各種機能の実装やパスワードポリシーに関して[NISTのデジタルIDガイドラインに準拠しています。](https://www.ory.sh/docs/kratos/concepts/security))
 
