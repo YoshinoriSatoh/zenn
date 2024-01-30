@@ -112,14 +112,14 @@ kratosは、ID管理および認証に必要な一通りのAPI/機能を提供�
 フレームワークに内蔵されている認証機能と同等以上の機能を持っていると思います。
 
 ### kratosのセキュリティ
-kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、[SelfService flowと呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。](https://www.ory.sh/docs/kratos/self-service)
+kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、[SelfService flow](https://www.ory.sh/docs/kratos/self-service)と呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。
 
 SelfService flowに従うことで、各種攻撃やCSRFに対するセキュリティが確保されます。
 
 その他、各種機能の実装やパスワードポリシーに関して[NISTのデジタルIDガイドラインに準拠しています。](https://www.ory.sh/docs/kratos/concepts/security))
 
 ### kratosのスケーリング
-kartosは、DBにのみ状態を持っているため、コンテナの水平スケーリングによってスケールアウトが可能です。(https://www.ory.sh/docs/self-hosted/operations/scalability)
+kartosは、DBにのみ状態を持っているため、[コンテナの水平スケーリングによってスケールアウトが可能です。](https://www.ory.sh/docs/self-hosted/operations/scalability)
 
 DBの負荷については気にする必要はありますが、kratosのDBのみを増強するなど、認証部分のみをスケールアウト/スケールアップすることも可能です。
 
@@ -136,26 +136,26 @@ oryは、kratosの他に幾つかのOSSを開発しており、その中の一�
 
 oathkeeper自体がIAPとして振る舞うこともできますし、Traefikのような専用のプロキシ(エッジルーター)からoathkeeperを呼び出して、IAPを実装することもでき、kratosと相性も良いです。
 
-## kratos使用イメージ
-kratosを使用したユーザー登録からログイン、セッションの取得、APIへの受け渡しおよびAPI側でのセッションの取り扱いについて、概要を描いてみました。
+## kratosユースケース概要
+kratosを使用したユーザー登録からログイン、セッションの取得、APIへの受け渡しおよびAPI側でのセッションの取り扱いについて、ユースケース概要を描いてみました。
 
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kartos_usecase_overview/kratos_usecase_overview.png?raw=true)
+*kratosユースケース概要*
 
 左側の枠がWeb/Native App、真ん中にkratosとその右側にkratos DB、下側にビジネスロジックAPIとその右側にAPI用のDBを記載しています。
 
 kratosでは、ユーザー自身によるユーザー登録、ログイン、アカウント復旧といった、SelfService flowと呼ばれる実装がなされており、詳細は割愛していますが、図中に各SelfService flowと関連する流れとDB内のテーブルを記載しています。
 
-以下の流れで描いています。
+kartosは、Webアプリ(ブラウザ)およびネイティブアプリからの利用が想定されていますが、上図中ではまとめて記載しています。
+
+Webアプリ(ブラウザ)とネイティブアプリでは、細かいフローは異なりますが、本記事では簡略化しています。
+
+以下の流れで説明します。
 1. ユーザー登録
 2. メールアドレス検証
 3. ログイン
 4. セッション取得
 5. 認証が必要なAPIへのリクエスト
-
-### 想定アプリケーション
-kartosは、Webアプリ(ブラウザ)およびネイティブアプリからの利用が想定されています。
-
-Webアプリは、サーバーサイドでHTMLをレンダリングする方式(例えばNode.jsやPHP、Javaのフレームワーク等でレンダリング)と、SPAからの利用が想定されています。
 
 ### ユーザー登録
 ユーザー自身でのユーザー登録機能を備えています。
@@ -385,11 +385,18 @@ metadata_publicは、ログインセッションに含まれる情報で、ユ�
 この場合、ユーザー自身ではロールは設定できない（させたくない）ため、アドミン権限を持つ管理者ユーザーがkratosのAdmin系APIを使用して、metadata_publicを更新することになります。
 
 ## 一旦まとめ
+ID管理および認証機能導入の選択肢および、複数のAPIが構築される状況下で、ory kratos選択した背景、理由について説明しました。
 
+kratosの一通りの機能やユースケース概要、設計Tipsについても紹介しました。
 
+私自身、2つほどのプロジェクトでory kratosを導入していまして、最初の使い方のキャッチアップは少し大変でしたが、そこを乗り越えてしまえば便利に使用できる印象です。
+
+NIST準拠のセキュリティ観点で実装されていたり、Golangベースかつ状態管理の依存先がDBのみとシンプルな作りでもあるため、スケーリングやパフォーマンス観点でも使いやすいです。
+
+まだまだ、全ての機能を使い込んでいるわけではないのですが、今後もkratosを使い込み、使い方や実装サンプルについても紹介していきたいと思います。
 
 ## SelfService flowのサンプル
-以下のリポジトリに、kratosのself-service flowのサンプルを作成しました。
+早速ですが、以下のリポジトリにkratosのself-service flowのごく簡単なサンプルを作成しました。
 
 https://github.com/YoshinoriSatoh/kratos_selfservice_example
 
@@ -610,3 +617,10 @@ cookieファイルの中身は以下のようになっています。
   ]
 }
 ```
+
+### おわりに
+以上、ory kratosとその実装サンプルの紹介でした。
+
+今後もkratosの機能やその使い方について、発信していきたいと思います。
+
+(Passkey実装されてほしいなぁ)
