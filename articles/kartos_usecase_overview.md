@@ -398,7 +398,7 @@ NIST準拠のセキュリティ観点で実装されていたり、Golangベー�
 ## SelfService flowのサンプル
 早速ですが、以下のリポジトリにkratosのself-service flowのごく簡単なサンプルを作成しました。
 
-https://github.com/YoshinoriSatoh/kratos_selfservice_example
+https://github.com/YoshinoriSatoh/kratos_selfservice_example/README-SELFSERVICE-CURL.md
 
 docker compose upで、kratos、DB, メールサーバのmailslurperが起動します。
 
