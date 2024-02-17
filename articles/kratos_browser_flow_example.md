@@ -1,5 +1,5 @@
 ---
-title: 
+title: kratos browser flow example
 emoji: ":lock" 
 type: "tech" 
 topics: ["ory", "kratos", "authentication", "htmx", "golang"] 
