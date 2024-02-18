@@ -1,5 +1,5 @@
 ---
-title: kratos browser flow example
+title: HTMX を使用した kratos browser flow の実装サンプル
 emoji: ":lock" 
 type: "tech" 
 topics: ["ory", "kratos", "authentication", "htmx", "golang"] 
@@ -11,17 +11,85 @@ published: false
 
 [ID管理 & 認証APIの ory kratos(self-hosting)の紹介](https://zenn.dev/yoshinori_satoh/articles/kartos_usecase_overview)
 
-本記事では、ブラウザからkratosの各種self-service flowを実行するサンプルコードを紹介・解説します。
+本記事では、ブラウザからkratosの各種self-service flowを実行する、golang と[HTMX](https://htmx.org/)を使用したサンプルコードを紹介・解説します。
 
 ## self-service flow
+改めてself-service flowについて簡単に説明します。
 
-### flowの初期化とレンダリング
+kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、[SelfService flow](https://www.ory.sh/docs/kratos/self-service)と呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。
+
+self-ervice flowに従うことで、各種攻撃やCSRFに対するセキュリティが確保されます。
+
+self-service flowの流れは、以下のドキュメントに記載されています。
+
+https://www.ory.sh/docs/kratos/self-service#browser-flows-for-server-side-apps-nodejs-php-java-
+
+self-service flowの実装方式には、以下3つの方法があります。
+self-service flowの実装方式には、以下3つの方法があります。
+* Browser-based flows
+  * Browser-based flows for server-side apps
+  * Browser-based flows also support client-side applications
+* API flows
+
+Webアプリであれば、`Browser-based flows`、ネイティブアプリであれば`API flows`を使用します。
+
+最も大きな違いはセッションの管理方法で、`Browser-based flows`はCookieを使用しますが、`API flows`はTokenを使用します。
+
+また、Webアプリの場合で、ReactやVueのようなSPAの場合は`Browser-based flows also support client-side applications`を使用します。
+
+この場合、kratosへのAPIリクエスト時に、`Accept: application/json` ヘッダを付与し、結果をJSONで受け取ります。
+
+リダイレクトは発生しません。
+
+SPAを使用せず、PHPやJava等のMVCフレームワーク等を使用してサーバサイドでHTMLをレンダリングする場合は`Browser-based flows for server-side apps`を使用します。
+
+この場合は、kratosへのAPIリクエスト時に、`Accept: text/html` ヘッダを付与し、結果をHTMLで受け取り、またリダイレクトが返却されることもあります。
+
+但し、本記事のサンプルでは、サーバサイドでHTMLをレンダリングしているものの、HTMXを使用した[HDA(Hypermedia-Driven Applications)](https://htmx.org/essays/hypermedia-driven-applications/)であるため、上記のユースケースに該当しません。
+
+そこで、ブラウザからkratosへ直接アクセスするのではなく、APIを経由してアクセスし、kratosから返却された情報をHTMXを使用してレンダリングする構成としています。
+
+APIからkaratosへアクセスする際には、JSONでやりとりすることになるため、`Browser-based flows also support client-side applications`を使用しています。
+
+APIからkratosを使用しているため、一見、`API flows`を使用するべきようにも見えますが、`API flows`はあくまでも、Cookieを利用不可能なネイティブアプリに使用することを想定したものです。
+
+構成の詳細は後述します。
+
+### flowの種類
+flowには以下の種類があります。
+
+* Registration flow (ユーザーの登録)
+* Verification flow (メールアドレス検証)
+* Login flow (ログイン)
+* Recovery flow (パスワードリセット)
+* Settings flow (プロフィール更新/パスワード変更)
+
+### flowの実行手順
+基本的には、最初にflowを作成し、発行されたflowに所定のパラメータを指定して、flowを更新する流れです
+
+flowの種類によっては、1回のみのflow更新で完了するものと、2回のflow更新が必要なものとに分けられます。
+
+以下のflowは、1回のflow更新のみで完了するものです。
+* Registration flow
+* Login flow
+
+以下のflowは、2回のflow更新が必要なものです。
+* Verification flow
+* Recovery flow
+* Settings flow
+
+flowの情報は、flowの種類ごとにkratosのDBの`selfservice_xxxxxx_flows`テーブルに保管されており、flowの状態は`state`カラムに保管されています。
+
+### flow作成とレンダリング
+最初にflowを作成します。
+
+Browser-based flows 
 
 ### flowの実行
 
-### flow間の遷移
+### 3. flow間の遷移
 
-#### Registration flow から Verification flow への遷移
+#### 3-1. Registration flow から Verification flow への遷移
 
 #### Recovery flow から Settings flow への遷移
 
@@ -29,18 +97,86 @@ published: false
 
 ## サンプルの構成
 
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/browser_flow_impl_structure.png?raw=true)
+
+Golang実装のAPIサーバーと、kratos、およびkratosのDBが起動します。
+
+kratosからメール送信を行うため、ローカル確認用のメールサーバであるMailSlurperも起動しています。
+
+### 起動コマンド
+```zsh
+docker compose up
+```
+
+### 起動するコンテナ
+docker compose で以下のコンテナが起動します。
+
+| コンテナ | 外部公開エンドポイント | 概要 |
+| ---- | ---- | ---- |
+| kratos | - | kratosサーバー |
+| kratos-migrate | - | kratosのDBマイグレーション(実行後終了) |
+| db-kratos | postgres://kratos:secret@db-kratos:5432/kratos | kratosで使用する Postgres |
+| mailslurper | http://localhost:4436 | ローカル用メールサーバ |
+| app-sample | http://localhost:3000 | kratosを使用したサンプルアプリケーション |
+
+
 ### ディレクトリ構成
+```
+.
+├── app // サンプルアプリケーションのAPI(Golang)
+│   └── sample
+│       ├── Dockerfile
+│       └── cmd
+│         └── server // サンプルアプリケーションのエントリーポイント
+│       ├── go.mod
+│       ├── go.sum
+│       ├── handler // HTTP Request/Responseのハンドリング
+│       ├── kratos  // kratos API呼び出しをラッピング
+│       ├── static // 静的ファイル
+│       └── templates // HTMLテンプレート
+└── kratos 
+    ├── config.yml // kratos設定ファイル
+    ├── identity.schema.user_v1.json // Identity Schema
+    └── templates // メールテンプレート
+```
 
-### kratosへのアクセスはAPI経由
+### HTMXによるHDAの採用
+本記事のサンプルでは、golangでAPIサーバを実装し、APIサーバを経由してkratosへアクセスする構成としています。
 
-### HTMXを使用したレンダリング
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/browser_flow_impl_overview.png?raw=true)
 
-SPAではなく、HDA
+ReactやVueのようなSPAを使用しないサーバサイドレンダリングですが、HTMXによる[HDA(Hypermedia-Driven Applications)](https://htmx.org/essays/hypermedia-driven-applications/)を採用しています。
 
-self-service flowでは、server side appsの部分の実装に該当する
+HDAをざっくり説明すると、HTMLの一部分(フラグメント)をレンダリングして返却するが、ページ全体を読み込み直すことなく部分的に描画可能な方法です。
+
+最初のURLアクセスでは、ページ全体のHTMLが返却され（通常のサーバサイドレンダリング）、読み込んだページの中で非同期でAPIを呼び出すと(AJAX)、HTMLのフラグメントが返却されます。
+
+このように、サーバサイドレンダリングとクライアントサイドレンダリングが合成されたような仕組みがHDAです。
+
+今後の開発で効率が良くなりそうと考え、実験的にHDA(HTMX)を採用しています。
+
+### HDAを前提としたBrowser-based flowsの実装方針
+
+HDAの仕組み上、ブラウザからkratosへ直接アクセスする方式には少々不都合があります。
+
+まず、`Browser-based flows also support client-side applications`では、返却値がJSONであるため、そのまま直接は使用できません。
+
+また、`Browser-based flows for server-side apps`では、エラー時等の画面遷移の際に、kratosからリダイレクトが返却されます。
+
+リダイレクト先の処理で、改めてflowやエラー情報を取得し、レンダリングしたHTMLを返却する実装も可能ですが、HDA的にあまり直感的でないように思いました。
+
+非同期でAPIを呼び出してもしエラーが発生した場合、エラー情報も含めてレンダリングされたHTMLが返却されて欲しいところです。
+
+HDAでもリダイレクトによる画面遷移を使用することはありますが、処理の内容によって、リダイレクトするか、HTMLフラグメントを返却するかは選択できる方が直感的な制御ができると思います。
+
+上記を考慮すると、kratosへのアクセスはAPIサーバを経由し、APIサーバからレンダリングされたHTMLを返却する構成が最適と考えました。
+
+APIサーバーからkratosへアクセスする際には、JSONでやりとりしたいため`Browser-based flows also support client-side applications`を使用しています。
+
+APIサーバー内で、kratos SDKを使用して実装しており、SDK使用時には`Accept: application/json`が付与されており、自ずと`Browser-based flows also support client-side applications`が使用されます。
 
 
-## Registration flow
+## Registration flow と Verification flow
 
 ### Registration flowの初期化とレンダリング
 
@@ -253,7 +389,6 @@ Codeが指定された場合は
 
 を実行します。
 
-## Registration flow
 
 #### 補足
 Registration flowからVerification flowへ遷移する挙動は、Identity Schemaの IdentifierにEmailを指定し、なおかつEmailを使用してVerificationを実行するように指定している場合に限ります。
@@ -281,6 +416,14 @@ Registration flowからVerification flowへ遷移する挙動は、Identity Sche
         },
         ...
 ```
+
+## Login flow
+
+## Settings(profile) flow 
+
+## Recovery flow と Settings(password) flow
+
+## 認証が必要なページへのアクセス制御
 
 ### おわりに
 ブラウザから、kratosの各種self-service flowを実行するサンプルコードを紹介しました。
