@@ -9,7 +9,7 @@ published: false
 ## 本記事の概要
 以下の記事で、ory kratosのユースケース概要と、shell scriptを使用した簡単な実行サンプルを紹介しました。
 
-[ID管理 & 認証APIの ory kratos(self-hosting)の紹介](https://zenn.dev/yoshinori_satoh/articles/kartos_usecase_overview)
+@[card](https://zenn.dev/yoshinori_satoh/articles/kartos_usecase_overview)
 
 本記事では、ブラウザからkratosの各種self-service flowを実行する、golang と[HTMX](https://htmx.org/)を使用したサンプルコードを紹介・解説します。
 
