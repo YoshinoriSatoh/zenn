@@ -124,6 +124,8 @@ Verification flowが作成されて、検証メールの送信までが実施さ
 
 #### Recovery flow から Settings flow への遷移
 
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_move_2.png?raw=true)
+
 パスワードリセット時に、Recovery flowが使用されます。
 
 メールアドレスを入力し、送信された復旧コードを使用して、Recovery flowが完了すると、パスワードを設定するためのSettings flowが作成されます。
