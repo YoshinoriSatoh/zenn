@@ -70,6 +70,8 @@ kratosには専用のDBが存在し、flow情報はDBに保管されます。
 
 `ui`カラムには、レンダリングに必要な情報が格納され、create時とupdate時の結果によって内容が更新されます。
 
+idを指定してflowを取得するAPIも用意されており、画面遷移等の都合でflow情報を取得し、`csrf_token`等の必要な情報を取得することがあります。
+
 browser flwoの場合にのみ使用する、`csrf_token`も格納されています。
 
 flowには有効期限`expires_at`があります。
@@ -80,11 +82,53 @@ flowの情報は、flowの種類ごとにkratosのDBの`selfservice_xxxxxx_flows
 
 ### flow間の遷移
 
+Registration flow と Recovery flowについては、flowの完了時点で別のflowが作成されます。
+
 #### Registration flow から Verification flow への遷移
+
+ユーザー登録時に、Registration flowが使用されます。
+
+Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用してVeificationを実行するように指定している場合は、Registration flow完了後に、Emailを検証するためのVerification flowが作成されます。
+
+```json:kratos/general/identity.schema.user_v1.json
+ "properties": {
+    "traits": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "title": "E-Mail",
+          "ory.sh/kratos": {
+            "credentials": {
+              "password": {
+                "identifier": true
+              }
+            },
+            "verification": {
+              "via": "email"
+            },
+            ...
+          }
+        },
+        ...
+```
+
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_move.png?raw=true)
+
+Verification flowが作成されて、検証メールの送信までが実施されます。
+
+通常、Verification flowの作成をkratos APIを通じて行った場合、Verification flow のstateは`choose_method`になり、検証対象のEMailによる更新を待つ状態となりますが、Registration flow完了後はこのステップまでが実施された状態となり、Verification flowのstateも`sent_email`に更新されます。
+
+この後は、検証メールに記載された検証コードを使用して、Verification flowを更新すると、stateが`passed_challenge`となり、Verification flowが完了します。
 
 #### Recovery flow から Settings flow への遷移
 
+パスワードリセット時に、Recovery flowが使用されます。
 
+メールアドレスを入力し、送信された復旧コードを使用して、Recovery flowが完了すると、パスワードを設定するためのSettings flowが作成されます。
+
+Recovery flow完了時に、セッションも発行されるため、作成されたSettings flowを使用して、パスワードを設定することができます。
 
 ## サンプルの構成
 
@@ -166,7 +210,6 @@ APIサーバーからkratosへアクセスする際には、JSONでやりとり�
 
 APIサーバー内で、kratos SDKを使用して実装しており、SDK使用時には`Accept: application/json`が付与されており、自ずと`Browser-based flows also support client-side applications`が使用されます。
 
-
 ## Registration flow と Verification flow
 
 ### Registration flowの初期化とレンダリング
@@ -230,9 +273,7 @@ CSRF Token取得と同様に、Verification flow ID取得の際も、kratos-clie
 ### Verfiication flow内部のステップと状態
 Verification flowには以下のステップがあり、またflowの状態が`selfservice_verification_flows`テーブルの`state`カラムに保管されています。
 
-[TODO: 図]
-
-それぞれのステップに対応して、stateが更新されます。
+それぞれのステップでstateが更新されます。
 
 1. Verification flowの作成 (state -> choose_method) 
 2. 検証したいEmailを使用して、flowを更新 (state -> sent_email)
