@@ -16,7 +16,7 @@ published: false
 ## self-service flow
 改めてself-service flowについて簡単に説明します。
 
-kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、[SelfService flow](https://www.ory.sh/docs/kratos/self-service)と呼ばれる実装がなされており、この仕様がNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。
+kratosには、ユーザー自身によるユーザー登録やログイン、アカウント復旧といった、[SelfService flow](https://www.ory.sh/docs/kratos/self-service)と呼ばれる実装がなされており、この仕様はNISTやIFTF、Microsoft Research、Google Research、Trou Huntによって確立されたベストプラクティスに基づいているとのことです。
 
 self-ervice flowに従うことで、各種攻撃やCSRFに対するセキュリティが確保されます。
 
@@ -24,7 +24,6 @@ self-service flowの流れは、以下のドキュメントに記載されてい
 
 https://www.ory.sh/docs/kratos/self-service#browser-flows-for-server-side-apps-nodejs-php-java-
 
-self-service flowの実装方式には、以下3つの方法があります。
 self-service flowの実装方式には、以下3つの方法があります。
 * Browser-based flows
   * Browser-based flows for server-side apps
@@ -37,9 +36,7 @@ Webアプリであれば、`Browser-based flows`、ネイティブアプリで�
 
 また、Webアプリの場合で、ReactやVueのようなSPAの場合は`Browser-based flows also support client-side applications`を使用します。
 
-この場合、kratosへのAPIリクエスト時に、`Accept: application/json` ヘッダを付与し、結果をJSONで受け取ります。
-
-リダイレクトは発生しません。
+この場合、kratosへのAPIリクエスト時に、`Accept: application/json` ヘッダを付与し、結果をJSONで受け取り、ダイレクトは発生しません。
 
 SPAを使用せず、PHPやJava等のMVCフレームワーク等を使用してサーバサイドでHTMLをレンダリングする場合は`Browser-based flows for server-side apps`を使用します。
 
@@ -55,7 +52,10 @@ APIからkratosを使用しているため、一見、`API flows`を使用する
 
 構成の詳細は後述します。
 
-### flowの種類
+### flowの種類と実行の流れ
+
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_overview.png?raw=true)
+
 flowには以下の種類があります。
 
 * Registration flow (ユーザーの登録)
@@ -64,32 +64,23 @@ flowには以下の種類があります。
 * Recovery flow (パスワードリセット)
 * Settings flow (プロフィール更新/パスワード変更)
 
-### flowの実行手順
-基本的には、最初にflowを作成し、発行されたflowに所定のパラメータを指定して、flowを更新する流れです
+基本的には、最初にflowを作成し、発行されたflowに所定のパラメータを指定して、flowを更新します。
 
-flowの種類によっては、1回のみのflow更新で完了するものと、2回のflow更新が必要なものとに分けられます。
+kratosには専用のDBが存在し、flow情報はDBに保管されます。
 
-以下のflowは、1回のflow更新のみで完了するものです。
-* Registration flow
-* Login flow
+`ui`カラムには、レンダリングに必要な情報が格納され、create時とupdate時の結果によって内容が更新されます。
 
-以下のflowは、2回のflow更新が必要なものです。
-* Verification flow
-* Recovery flow
-* Settings flow
+browser flwoの場合にのみ使用する、`csrf_token`も格納されています。
+
+flowには有効期限`expires_at`があります。
+
+flowによっては、状態を持ち、更新ステップが2回必要なものもあります。
 
 flowの情報は、flowの種類ごとにkratosのDBの`selfservice_xxxxxx_flows`テーブルに保管されており、flowの状態は`state`カラムに保管されています。
 
-### flow作成とレンダリング
-最初にflowを作成します。
+### flow間の遷移
 
-Browser-based flows 
-
-### flowの実行
-
-### 3. flow間の遷移
-
-#### 3-1. Registration flow から Verification flow への遷移
+#### Registration flow から Verification flow への遷移
 
 #### Recovery flow から Settings flow への遷移
 
