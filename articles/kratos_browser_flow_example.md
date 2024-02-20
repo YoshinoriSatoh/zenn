@@ -7,7 +7,7 @@ published: false
 ---  
 
 ## 本記事の概要
-以下の記事で、ory kratosのユースケース概要と、shell scriptを使用した簡単な実行サンプルを紹介しました。
+以下の記事で、[ory kratos](https://www.ory.sh/docs/welcome)のユースケース概要と、shell scriptを使用した簡単な実行サンプルを紹介しました。
 
 @[card](https://zenn.dev/yoshinori_satoh/articles/kartos_usecase_overview)
 
