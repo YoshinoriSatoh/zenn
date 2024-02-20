@@ -88,6 +88,8 @@ Registration flow と Recovery flowについては、flowの完了時点で別�
 
 ユーザー登録時に、Registration flowが使用されます。
 
+しょき
+
 Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用してVeificationを実行するように指定している場合は、Registration flow完了後に、Emailを検証するためのVerification flowが作成されます。
 
 ```json:kratos/general/identity.schema.user_v1.json
