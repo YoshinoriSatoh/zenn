@@ -114,8 +114,9 @@ Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用�
         ...
 ```
 
-<a name="registration-flow-move"></a>
-![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_move.png?raw=true)
+[](#registration-flow-move)
+
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/registration_flow_move.png?raw=true)
 
 通常、Verification flowの作成をkratos APIを通じて行った場合、Verification flow のstateは`choose_method`になり、検証対象のEMailによる更新を待つ状態となりますが、Registration flow完了後はこのステップまでが実施された状態となり、Verification flowのstateも`sent_email`に更新されます。
 
@@ -123,7 +124,7 @@ Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用�
 
 #### Recovery flow から Settings flow への遷移
 
-![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_move_2.png?raw=true)
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/recovery_flow_move.png?raw=true)
 
 パスワードリセット時に、Recovery flowが使用されます。
 
