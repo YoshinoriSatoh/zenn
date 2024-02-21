@@ -126,9 +126,9 @@ Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用�
 
 パスワードリセット時に、Recovery flowが使用されます。
 
-メールアドレスを入力し、送信された復旧コードを使用して、Recovery flowが完了すると、パスワードを設定するためのSettings flowが作成されます。
+メールアドレスを入力してRecovery flowを作成し、送信された復旧コードを使用して、Recovery flowが完了すると、パスワードを設定するためのSettings flowが作成されます。
 
-Recovery flow完了時に、セッションも発行されるため、作成されたSettings flowを使用して、パスワードを設定することができます。
+Recovery flow完了時にセッションも発行されるため、作成されたSettings flowを使用して、パスワードを設定することができます。
 
 ## サンプルの構成
 
