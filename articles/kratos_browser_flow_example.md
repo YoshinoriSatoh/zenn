@@ -222,9 +222,10 @@ APIサーバーからkratosへアクセスする際には、JSONでやりとり�
 
 APIサーバー内で、kratos SDKを使用して実装しており、SDK使用時には`Accept: application/json`が付与されており、自ずと`Browser-based flows also support client-side applications`が使用されます。
 
-## コードを一部抜粋して解説
+## ユーザー登録
+ユーザー登録から、メールアドレスの検証までの流れを解説します。
 
-Registration flowの作成と更新、Verification flowへの遷移部分について、抜粋して解説します。
+Registration flow -> Verification flowの流れで実行します。
 
 ### Registration flowの作成と更新
 
@@ -434,7 +435,7 @@ HTMXでは、`hx-post`のような記述で、formの場合はsubmitをトリガ
 
 クエリパラメータの`flow`と、hiddenの`csrf_token`、および各種input要素の`email`と`password`がbodyに含まれて送信されます。
 
-上記の場合`POST /auth/registration`をAJAXでアクセスし、正常にflowを更新できればVerification flowのコード入力画面へ遷移し、もしエラーがあればレスポンスとしてHTMLフラグメントが返却されます。
+上記の場合`POST /auth/registration`へAJAXでアクセスし、正常にflowを更新できればVerification flowのコード入力画面へ遷移し、もしエラーがあればレスポンスとしてHTMLフラグメントが返却されます。
 
 ### Registration flowの更新後のVerfiication flowへの遷移
 
@@ -627,7 +628,199 @@ Codeが指定された場合は
 
 を実行します。
 
-### おわりに
+## アカウント復旧(パスワードリセット) 
+パスワードリセット時の流れを解説します。
+
+Recovery flow -> Settings flow (password)の流れで実行します。
+
+### Recovery flowの作成と更新
+
+Recovery flowの更新は、以下の2ステップ必要です。
+ここでも、Recovery flowからSettings flowへの遷移の流れ図を再掲します。
+
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/recovery_flow_move.png?raw=true)
+
+Verification flowには以下のステップがあり、stateが更新されます。
+
+1. Recovery flowの作成 (state -> choose_method)
+2. アカウント復旧したいメールアドレスを指定して更新 (state -> sent_email)
+3. メールアドレスに送信されたアカウント復旧コードを指定して更新 (state -> passed_challenge)
+
+Recovery flowの作成は、[Registration flowの作成と同様です。](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_1_0_selfservice)
+
+手順2.は、Recovery flowを更新する際のパラメーターにEmailを指定するだけで、Registration flowの更新と同様のため、コード解説は割愛します。
+
+手順3.では、メールに送信されたアカウント復旧コードを指定して、Recovery flowを更新すると、パスワード変更のためのSettings flowが作成され、またログインセッションも作成されます。（`Browser-based flows`の場合はCookieでログインセッションが返却されます）
+
+### Recovery flowの更新後のSettings flowへの遷移
+
+Settings flowを使用することでパスワードの変更が可能ですが、Settings flowの実行には、ログイン状態である必要があります。
+
+アカウント復旧（パスワードリセット）時は、通常のログインができない状態であるため、Recovery flowの実行によって取得したログインセッションを使用する必要があります。
+
+Recovery flowの完了後には、Settings flowが作成されますが、Registration flow -> Verification flowの場合のように、そのまま継続するのではなく、一度ブラウザ上でリダイレクトが必要です。
+
+CSRF等のセキュリティを確保するためだと思いますが、以下で関連トピックが議論されているようです。
+
+https://github.com/ory/kratos/discussions/2959
+
+https://github.com/ory/kratos/issues/2884
+
+Recovery flowの更新後に成功すると、status code 422 (browser_location_change_required) のエラーが返却されるのですが、エラー内の`redirect_browser_to`にリダイレクト先のURLが含まれています。
+
+```go:app/auth-general/kratos/selfservice.go 
+func (p *Provider) UpdateRecoveryFlow(i UpdateRecoveryFlowInput) (UpdateRecoveryFlowOutput, error) {
+  ...
+
+	// Recovery Flow を更新
+	updateRecoveryFlowBody := kratosclientgo.UpdateRecoveryFlowBody{
+		UpdateRecoveryFlowWithCodeMethod: &updateBody,
+	}
+	recoveryFlow, response, err := p.kratosPublicClient.FrontendApi.
+		UpdateRecoveryFlow(context.Background()).
+		Flow(i.FlowID).
+		Cookie(i.Cookie).
+		UpdateRecoveryFlowBody(updateRecoveryFlowBody).
+		Execute()
+	if err != nil {
+		slog.Error("Update Recovery Flow Error", "RecoveryFlow", recoveryFlow, "Response", response, "Error", err)
+		// browser location changeが返却された場合は、リダイレクト先URLを設定
+		if response.StatusCode == 422 {
+			output.RedirectBrowserTo = getRedirectBrowserToFromError(err)
+			output.Cookies = response.Header["Set-Cookie"]
+		} else {
+			output.ErrorMessages = getErrorMessages(err)
+		}
+		return output, err
+	}
+	slog.Info("UpdateRecovery Succeed", "RecoveryFlow", recoveryFlow, "Response", response)
+
+	// browser flowでは、kartosから受け取ったcookieをそのままブラウザへ返却する
+	output.Cookies = response.Header["Set-Cookie"]
+
+	return output, nil
+}
+```
+
+### Seggins flowの更新 (state -> success)
+
+`redirect_browser_to`には、Settings flowのUI URLが`?flow=`のクエリパラメータ入りで入っています。
+
+UI URLは、kratosのconfigで設定可能です。
+
+```yaml:kratos/config.yml
+selfservice:
+  ...
+  flows:
+    settings:
+      ui_url: http://localhost:3000/my/password
+			...
+```
+
+上記のUI URLへにリダイレクトされた際に、クエリパラメータで付与されたflow IDから、作成されたSettings flowを取得します。
+
+flow IDが指定された場合は、CreateOrGetSettingsFlow関数で作成済みのSettings flowを取得しています。
+
+(Settings flowには、更新できる対象として、password以外にもTraits内の項目(Emailや、例えばNickname等のプロフィール項目)の更新が可能です。)
+
+```go:app/auth-general/handler/handler_auth.go
+type handleGetMyPasswordRequestParams struct {
+	cookie string
+	flowID string
+}
+
+func (p *Provider) handleGetMyPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	session := getSession(ctx)
+
+	reqParams := handleGetMyPasswordRequestParams{
+		cookie: r.Header.Get("Cookie"),
+		flowID: r.URL.Query().Get("flow"),
+	}
+
+	// Setting Flow の作成 or 取得
+	// Setting flowを新規作成した場合は、FlowIDを含めてリダイレクト
+	output, err := p.d.Kratos.CreateOrGetSettingsFlow(kratos.CreateOrGetSettingsFlowInput{
+		Cookie: reqParams.cookie,
+		FlowID: reqParams.flowID,
+	})
+
+	if err != nil {
+		tmpl.ExecuteTemplate(w, "my/password/index.html", viewParameters(session, r, map[string]any{
+			"ErrorMessages": output.ErrorMessages,
+		}))
+	}
+
+	// kratosのcookieをそのままブラウザへ受け渡す
+	setCookieToResponseHeader(w, output.Cookies)
+
+	// flowの情報に従ってレンダリング
+	tmpl.ExecuteTemplate(w, "my/password/index.html", viewParameters(session, r, map[string]any{
+		"SettingsFlowID":       output.FlowID,
+		"CsrfToken":            output.CsrfToken,
+		"RedirectFromRecovery": reqParams.flowID == "recovery",
+	}))
+}
+```
+
+```html:app/sample/templates/my/password/_form.html
+<form 
+  id="password-form"
+  hx-post="/my/password?flow={{.SettingsFlowID}}" 
+  hx-swap="outerHTML" 
+  hx-target="this"
+>
+  <input
+    name="csrf_token"
+    type="hidden"
+    value="{{.CsrfToken}}"
+  />
+  <div class="mt-2 mb-4">
+    <label class="form-control">
+      <div class="label">
+        <span class="label-text">パスワード</span>
+      </div>
+      <input 
+        id="password"
+        type="password" 
+        name="password" 
+        value="Overwatch2024!@"
+        class="input input-bordered"
+        onkeyup="this.setCustomValidity('')"
+        hx-on:htmx:validation:validate="
+          if(this.value != document.getElementById('password-confirmation').value) {
+            this.setCustomValidity('パスワードが一致しません') 
+            htmx.find('#settings-form').reportValidity()
+          }
+        "
+      >
+    </label>
+
+    <label class="form-control">
+      <div class="label">
+        <span class="label-text">パスワード確認</span>
+      </div>
+      <input 
+        id="password-confirmation"
+        type="password" 
+        name="password-confirmation" 
+        value="Overwatch2024!@"
+        class="input input-bordered"
+        onkeyup="this.setCustomValidity('')"
+      >
+    </label>
+  </div>
+
+  <div class="mx-auto text-center">
+    <button class="btn btn-primary btn-wide">送信</button>
+  </div>
+```
+
+上記画面から、`POST /my/password`へAJAXでアクセスし、正常にflowを更新できれば完了です。
+
+もしエラーがあればレスポンスとしてHTMLフラグメントが返却されます。
+
+### まとめ
 ブラウザから、kratosの各種self-service flowを実行するサンプルコードを紹介しました。
 
 kratosへのアクセスをAPIでラッピングし、レンダリングにHTMXを使用したHDAの構成でのサンプルです。
