@@ -114,8 +114,6 @@ Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用�
         ...
 ```
 
-[](#registration-flow-move)
-
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/registration_flow_move.png?raw=true)
 
 通常、Verification flowの作成をkratos APIを通じて行った場合、Verification flow のstateは`choose_method`になり、検証対象のEMailによる更新を待つ状態となりますが、Registration flow完了後はこのステップまでが実施された状態となり、Verification flowのstateも`sent_email`に更新されます。
@@ -426,7 +424,7 @@ HTMXでは、`hx-post`のような記述で、formの場合はsubmitをトリガ
 
 ### Registration flowの更新後のVerfiication flowへの遷移
 
-上記のPOSTによって、Registration flowの更新が完了すると、検証メールが送信され、Verification flow が state=`sent_email`で作成されます。([上図参照](#registration-flow-move))
+上記のPOSTによって、Registration flowの更新が完了すると、検証メールが送信され、Verification flow が state=`sent_email`で作成されます。([上図参照](https://zenn.dev/yoshinori_satoh/articles/kratos_browser_flow_example#registration-flow-%E3%81%8B%E3%82%89-verification-flow-%E3%81%B8%E3%81%AE%E9%81%B7%E7%A7%BB))
 
 ```go:app/auth-general/kratos/selfservice.go 
 func (p *Provider) UpdateRegistrationFlow(i UpdateRegistrationFlowInput) (UpdateRegistrationFlowOutput, error) {
