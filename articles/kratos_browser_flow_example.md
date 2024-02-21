@@ -11,7 +11,24 @@ published: false
 
 @[card](https://zenn.dev/yoshinori_satoh/articles/kartos_usecase_overview)
 
-本記事では、ブラウザからkratosの各種self-service flowを実行する、golang と[HTMX](https://htmx.org/)を使用したサンプルコードを紹介・解説します。
+本記事では、ブラウザからkratosの各種self-service flowを実行する、golang と[HTMX](https://htmx.org/)を使用したサンプルコードの紹介と一部抜粋して解説します。
+
+:::message
+本記事のサンプルコードは、ory kratos v1.0.0を使用しています。
+
+ちょうどこの記事を書いている間に、[kratos v1.1.0がリリースされていました。](https://github.com/ory/kratos/releases/tag/v1.1.0)
+
+サンプルは最新版とは異なるため、ご注意ください。
+:::
+
+
+## サンプルコード
+
+サンプルコードは以下のリポジトリです。
+
+@[card](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_0_0_selfservice)
+
+解説は後述します。
 
 ## self-service flow
 改めてself-service flowについて簡単に説明します。
@@ -132,6 +149,10 @@ Recovery flow完了時にセッションも発行されるため、作成され�
 
 ## サンプルの構成
 
+改めて、サンプルコードのリポジトリは以下です。
+
+@[card](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_0_0_selfservice)
+
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/browser_flow_impl_structure.png?raw=true)
 
 Golang実装のAPIサーバーと、kratos、およびkratosのDBが起動します。
@@ -210,7 +231,9 @@ APIサーバーからkratosへアクセスする際には、JSONでやりとり�
 
 APIサーバー内で、kratos SDKを使用して実装しており、SDK使用時には`Accept: application/json`が付与されており、自ずと`Browser-based flows also support client-side applications`が使用されます。
 
-## Registration flow と Verification flow
+## コードを一部抜粋して解説
+
+Registration flowの作成と更新、Verification flowへの遷移部分について、抜粋して解説します。
 
 ### Registration flowの作成と更新
 
@@ -424,7 +447,7 @@ HTMXでは、`hx-post`のような記述で、formの場合はsubmitをトリガ
 
 ### Registration flowの更新後のVerfiication flowへの遷移
 
-上記のPOSTによって、Registration flowの更新が完了すると、検証メールが送信され、Verification flow が state=`sent_email`で作成されます。([上図参照](https://zenn.dev/yoshinori_satoh/articles/kratos_browser_flow_example#registration-flow-%E3%81%8B%E3%82%89-verification-flow-%E3%81%B8%E3%81%AE%E9%81%B7%E7%A7%BB))
+上記のPOSTによって、Registration flowの更新が完了すると、検証メールが送信され、Verification flow が state=`sent_email`で作成され([上図参照](https://zenn.dev/yoshinori_satoh/articles/kratos_browser_flow_example#registration-flow-%E3%81%8B%E3%82%89-verification-flow-%E3%81%B8%E3%81%AE%E9%81%B7%E7%A7%BB))、またVerification flow IDが返却されます。
 
 ```go:app/auth-general/kratos/selfservice.go 
 func (p *Provider) UpdateRegistrationFlow(i UpdateRegistrationFlowInput) (UpdateRegistrationFlowOutput, error) {
@@ -471,27 +494,23 @@ func (p *Provider) UpdateRegistrationFlow(i UpdateRegistrationFlowInput) (Update
 	return output, nil
 }
 ```
+Verification flow ID取得の際もCsrf Tokenの場合と同様に、kratos-client-goのSDKに不具合があるようなので、http.Responseから取得しています。
 
-CSRF Token取得と同様に、Verification flow ID取得の際も、kratos-client-goのSDKに不具合があるようなので、http.Responseから取得しています。
+ここで、少しおさらいで、Registration flowからVerification flowへの遷移の流れ図を再掲します。
 
-ここで取得したVerification flow IDを使用して、Verification flowの継続が必要です。
+![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/registration_flow_move.png?raw=true)
 
-### Verfiication flow内部のステップと状態
-Verification flowには以下のステップがあり、またflowの状態が`selfservice_verification_flows`テーブルの`state`カラムに保管されています。
-
-それぞれのステップでstateが更新されます。
+Verification flowには以下のステップがあり、stateが更新されます。
 
 1. Verification flowの作成 (state -> choose_method) 
-2. 検証したいEmailを使用して、flowを更新 (state -> sent_email)
-3. 2.で指定したEmailへ送信された、検証コードを使用して、flowを更新 (state -> passed_challenge)
+2. 検証対象のEmailを指定してflowを更新 (state -> sent_email)
+3. 2.で指定したEmailへ送信された検証コードを指定してflowを更新 (state -> passed_challenge)
 
-Registration flowでは、flowを作成してそれを更新するという手順のみでしたが、Verification flowはもう少し複雑な手順です。
+Registration flow完了時点では、kratos側で上記の手順2.までが実行されています。
 
-Registration flow完了後に、kratos側で上記の手順2.までが実行され、検証対象のEmailへ検証コードが送信されます。
+ここで検証対象のEmailとは、ユーザー登録しようとしているEmailです。
 
-Registration flowからVerification flowへ遷移する場合は、検証対象のEmailは、Registartion flowで登録に使用したEmailとなります。
-
-残りは手順4.のみであり、登録したEmailへ送信された検証コードと、Registration flow完了時に返却されたVerification flow IDを使用して、Verification flowを更新します。
+残る手順は3.のみであり、Emailへ送信された検証コードと、Registration flow完了時に返却されたVerification flow IDを使用して、Verification flowを更新します。
 
 ### Verification flowの更新 (state -> passed_challenge)
 
@@ -499,20 +518,12 @@ Registration flow完了時に返却されたVerification flow IDを使用して�
 
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/verification_code_input.png?raw=true)
 
-上記の画面をレンダリングするHTMLテンプレートです。
+HTMLテンプレートの一部を抜粋します。
 
 ```html:app/auth-general/templates/verification/_code_form.html
-{{define "auth/verification/_code_form.html"}}
-<div class="alert alert-info mt-2">
-  <div>
-    <div>アカウント検証メールが送信されました。</div>
-    <div>メールに記載されている6桁の検証コードを入力してください。 </div>
-    <a class="link" href="http://localhost:4436" target="_blank">localhostのメールサーバはこちら</a>
-  </div>
-</div>
 <form 
   id="verification-form" 
-  hx-post="{{ .RoutePaths.AuthVerificationCode }}?flow={{.VerificationFlowID}}"
+  hx-post="/auth/verification/code?flow={{.VerificationFlowID}}"
   hx-swap="outerHTML" 
   hx-target="this"
   > 
@@ -549,14 +560,12 @@ Registration flow完了時に返却されたVerification flow IDを使用して�
 
   {{ template "_alert.html" }}
 </form>
-{{end}}
 ```
 
-上記HTMLのレンダリングには、`VerificationFlowID`と`CsrfToken`が埋め込まれています。
+Registration flowと同様、上記HTMLには、`VerificationFlowID`と`CsrfToken`が埋め込まれています。
 
-flow ID から flow情報を取得可能なGET APIがkratosに用意されており、これを利用してflow情報からCSRF Tokenを取得しています。
+formがsubmitされると、`POST /auth/verification/code`がAJAXでアクセスされ、正常にflowを更新できればVerification flowを完了してログイン画面へ、もしエラーがあればレスポンスとしてHTMLフラグメントが返却されます。
 
-上記HTMLのformが送信されると（HTMXを使用しているのでAJAXですが）、最終的に以下の関数が呼び出されます。
 
 ```go:app/auth-general/kratos/selfservice.go UpdateVerificationFlow
 func (p *Provider) UpdateVerificationFlow(i UpdateVerificationFlowInput) (UpdateVerificationFlowOutput, error) {
@@ -626,42 +635,6 @@ Codeが指定された場合は
 `3. 2.で指定したEmailへ送信された、検証コードを使用して、flowを更新 (state -> passed_challenge)`
 
 を実行します。
-
-
-#### 補足
-Registration flowからVerification flowへ遷移する挙動は、Identity Schemaの IdentifierにEmailを指定し、なおかつEmailを使用してVerificationを実行するように指定している場合に限ります。
-
-```json:kratos/general/identity.schema.user_v1.json
- "properties": {
-    "traits": {
-      "type": "object",
-      "properties": {
-        "email": {
-          "type": "string",
-          "format": "email",
-          "title": "E-Mail",
-          "ory.sh/kratos": {
-            "credentials": {
-              "password": {
-                "identifier": true
-              }
-            },
-            "verification": {
-              "via": "email"
-            },
-            ...
-          }
-        },
-        ...
-```
-
-## Login flow
-
-## Settings(profile) flow 
-
-## Recovery flow と Settings(password) flow
-
-## 認証が必要なページへのアクセス制御
 
 ### おわりに
 ブラウザから、kratosの各種self-service flowを実行するサンプルコードを紹介しました。
