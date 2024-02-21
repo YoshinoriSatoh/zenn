@@ -88,9 +88,7 @@ Registration flow と Recovery flowについては、flowの完了時点で別�
 
 ユーザー登録時に、Registration flowが使用されます。
 
-しょき
-
-Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用してVeificationを実行するように指定している場合は、Registration flow完了後に、Emailを検証するためのVerification flowが作成されます。
+Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用してVeificationを実行するように指定している場合は、Registration flow完了後に、Emailを検証するためのVerification flowが作成され、検証メールの送信までが実施されます。
 
 ```json:kratos/general/identity.schema.user_v1.json
  "properties": {
@@ -117,8 +115,6 @@ Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用�
 ```
 
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_move.png?raw=true)
-
-Verification flowが作成されて、検証メールの送信までが実施されます。
 
 通常、Verification flowの作成をkratos APIを通じて行った場合、Verification flow のstateは`choose_method`になり、検証対象のEMailによる更新を待つ状態となりますが、Registration flow完了後はこのステップまでが実施された状態となり、Verification flowのstateも`sent_email`に更新されます。
 
