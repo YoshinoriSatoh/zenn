@@ -114,6 +114,7 @@ Identity Schemaの IdentifierにEmailが存在し、なおかつEmailを使用�
         ...
 ```
 
+<a name="registration-flow-move"></a>
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/kratos_flow_move.png?raw=true)
 
 通常、Verification flowの作成をkratos APIを通じて行った場合、Verification flow のstateは`choose_method`になり、検証対象のEMailによる更新を待つ状態となりますが、Registration flow完了後はこのステップまでが実施された状態となり、Verification flowのstateも`sent_email`に更新されます。
@@ -212,15 +213,221 @@ APIサーバー内で、kratos SDKを使用して実装しており、SDK使用�
 
 ## Registration flow と Verification flow
 
-### Registration flowの初期化とレンダリング
+### Registration flowの作成と更新
 
-### Registration flowの実行
+ユーザー登録は、最初にRegistration flowを作成します。
 
-### Verfiication flowへの遷移
+```go:app/auth-general/handler/handler_auth.go
+type handleGetAuthRegistrationdRequestParams struct {
+	cookie string
+	flowID string
+}
 
-Registration flowが完了すると、Emailを検証するためのVerification flowが作成され、Verification flow IDが返却されます。
+func (p *Provider) handleGetAuthRegistration(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	session := getSession(ctx)
 
-```go:app/auth-general/kratos/selfservice.go UpdateRegistrationFlow
+	reqParams := handleGetAuthRegistrationdRequestParams{
+		cookie: r.Header.Get("Cookie"),
+		flowID: r.URL.Query().Get("flow"),
+	}
+
+	// Registration Flow の作成 or 取得
+	// Registration flowを新規作成した場合は、FlowIDを含めてリダイレクト
+	output, err := p.d.Kratos.CreateOrGetRegistrationFlow(kratos.CreateOrGetRegistrationFlowInput{
+		Cookie: reqParams.cookie,
+		FlowID: reqParams.flowID,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusOK)
+		tmpl.ExecuteTemplate(w, templatePaths.AuthRegistrationIndex, viewParameters(session, r, map[string]any{
+			"ErrorMessages": output.ErrorMessages,
+		}))
+		return
+	}
+  ...続く
+```
+
+kratosへのアクセスは`kratos`パッケージを使用してラッピングしています。
+
+```go:app/auth-general/kratos/selfservice.go 
+type CreateOrGetRegistrationFlowInput struct {
+	Cookie string
+	FlowID string
+}
+
+type CreateOrGetRegistrationFlowOutput struct {
+	Cookies       []string
+	FlowID        string
+	IsNewFlow     bool
+	CsrfToken     string
+	ErrorMessages []string
+}
+
+// Registration Flow がなければ新規作成、あれば取得
+// csrfTokenは、本来は *kratosclientgo.RegistrationFlow から取得できるはずだが、
+// kratos-client-go:v1.0.0 に不具合があるため、http.Response から取得し返却している
+func (p *Provider) CreateOrGetRegistrationFlow(i CreateOrGetRegistrationFlowInput) (CreateOrGetRegistrationFlowOutput, error) {
+	var (
+		err              error
+		response         *http.Response
+		registrationFlow *kratosclientgo.RegistrationFlow
+		output           CreateOrGetRegistrationFlowOutput
+	)
+
+	// flowID がない場合は新規にRegistration Flow を作成
+	// flowID がある場合はRegistration Flow を取得
+	if i.FlowID == "" {
+		registrationFlow, response, err = p.kratosPublicClient.FrontendApi.
+			CreateBrowserRegistrationFlow(context.Background()).
+			Execute()
+		if err != nil {
+			slog.Error("CreateRegistrationFlow Error", "RegistrationFlow", registrationFlow, "Response", response, "Error", err)
+			output.ErrorMessages = getErrorMessages(err)
+			return output, err
+		}
+		slog.Info("CreateRegistrationFlow Succeed", "RegistrationFlow", registrationFlow, "Response", response)
+
+		output.IsNewFlow = true
+
+	} else {
+		registrationFlow, response, err = p.kratosPublicClient.FrontendApi.
+			GetRegistrationFlow(context.Background()).
+			Id(i.FlowID).
+			Cookie(i.Cookie).
+			Execute()
+		if err != nil {
+			slog.Error("GetRegistrationFlow Error", "RegistrationFlow", registrationFlow, "Response", response, "Error", err)
+			output.ErrorMessages = getErrorMessages(err)
+			return output, err
+		}
+		slog.Info("GetRegisrationFlow Succeed", "RegistrationFlow", registrationFlow, "Response", response)
+	}
+
+	output.FlowID = registrationFlow.Id
+
+	// SDKを使用しているので、本来は上記レスポンスの第一引数である
+	// *kratosclientgo.RegistrationFlow から csrf_token その他を取得するところだが、
+	// goのv1.0.0のSDKには不具合があるらしく、仕方ないのでhttp.Responseのbodyから取得している
+	// https://github.com/ory/sdk/issues/292
+	b, err := readHttpResponseBody(response)
+	if err != nil {
+		slog.Error(err.Error())
+		return output, err
+	}
+	output.CsrfToken = getCsrfTokenFromResponseBody(b)
+
+	// browser flowでは、kartosから受け取ったcookieをそのままブラウザへ返却する
+	output.Cookies = response.Header["Set-Cookie"]
+
+	return output, nil
+}
+```
+
+FlowIDの指定がなければ新規にRegistration Flowを作成し、あれば作成済みのRegistration Flowを取得します。
+
+Registration Flowには`CSRF Token`が含まれており、`Browser-based flows`では、flowの更新時にCSRF Tokenが必要となるため、取得しています。
+
+kratosへのアクセスには[kratos-client-go](https://github.com/ory/kratos-client-go)のSDKに[不具合](https://github.com/ory/sdk/issues/292)があるようなので、http.Responseから取得しています。
+
+また、`Browser-based flows`では、kratosからCookieも返却され、flowの作成時に、CSRF用のCookieも作成されています。
+
+`Browser-based flows`でのflow更新時には、CSRF TokenとCSRF Cookieの両方が必要です。
+
+kratosへ直接アクセスする場合は、kratosから返却されたCookieがそのままブラウザで読み込まれるため([withCredentials有効時](https://developer.mozilla.org/ja/docs/Web/API/XMLHttpRequest/withCredentials))、意識する必要はありませんが、本サンプルのようにAPIサーバーを経由する場合は、kratosから返却されたCookieを、明示的にAPIサーバーからブラウザへ返却する必要があります。
+
+作成したRegistration Flowの`FlowID`と`CsrfToken`を埋め込み、HTMLをレンダリングします。
+
+```go:app/auth-general/handler/handler_auth.go
+  ...続き
+	// kratosのcookieをそのままブラウザへ受け渡す
+	setCookieToResponseHeader(w, output.Cookies)
+
+	if output.IsNewFlow {
+		redirect(w, r, fmt.Sprintf("%s?flow=%s", routePaths.AuthRegistration, output.FlowID))
+		return
+	}
+
+	// flowの情報に従ってレンダリング
+	w.WriteHeader(http.StatusOK)
+	tmpl.ExecuteTemplate(w, templatePaths.AuthRegistrationIndex, viewParameters(session, r, map[string]any{
+		"RegistrationFlowID": output.FlowID,
+		"CsrfToken":          output.CsrfToken,
+	}))
+}
+```
+
+```html:app/sample/templates/auth/registration/_form.html
+<form 
+  id="registration-form"
+  hx-post="/auth/registration?flow={{.RegistrationFlowID}}" 
+  hx-swap="outerHTML" 
+  hx-target="this"
+>
+  <input
+    name="csrf_token"
+    type="hidden"
+    value="{{.CsrfToken}}"
+  />
+
+  <div class="mt-2 mb-4">
+    <label class="form-control">
+      <div class="label">
+        <span class="label-text font-semibold">メールアドレス</span>
+      </div>
+      <input 
+        id="email"
+        name="email" 
+        value="yoshinori.satoh.tokyo@gmail.com"
+        placeholder="例) niko-chan@kratos-example.com"
+        {{if .ValidationFieldError.Email}}
+        class="input input-bordered input-error"
+        {{else}}
+        class="input input-bordered"
+        {{end}}
+      >
+      {{if .ValidationFieldError.Email}}
+      <div class="text-sm text-red-700 my-2">{{.ValidationFieldError.Email}}</div>
+      {{end}}
+    </label>
+
+    <label class="form-control">
+      <div class="label">
+        <span class="label-text">パスワード</span>
+      </div>
+      <input 
+        id="password"
+        type="password" 
+        name="password" 
+        value="Overwatch2024!@"
+        {{if .ValidationFieldError.Password}}
+        class="input input-bordered input-error"
+        {{else}}
+        class="input input-bordered"
+        {{end}}
+      >
+      {{if .ValidationFieldError.Password}}
+      <div class="text-sm text-red-700 my-2">{{.ValidationFieldError.Password}}</div>
+      {{end}}
+    </label>
+  </div>
+	...
+	<div class="mx-auto text-center">
+    <button class="btn btn-primary btn-wide">次へ</button>
+  </div>
+```
+
+HTMXでは、`hx-post`のような記述で、formの場合はsubmitをトリガーにAJAX通信が行われます。
+
+クエリパラメータの`flow`と、hiddenの`csrf_token`、および各種input要素の`email`と`password`がbodyに含まれて送信されます。
+
+上記の場合`POST /auth/registration`をAJAXでアクセスし、正常にflowを更新できればVerification flowのコード入力画面へ遷移し、もしエラーがあればレスポンスとしてHTMLフラグメントが返却されます。
+
+### Registration flowの更新後のVerfiication flowへの遷移
+
+上記のPOSTによって、Registration flowの更新が完了すると、検証メールが送信され、Verification flow が state=`sent_email`で作成されます。([上図参照](#registration-flow-move))
+
+```go:app/auth-general/kratos/selfservice.go 
 func (p *Provider) UpdateRegistrationFlow(i UpdateRegistrationFlowInput) (UpdateRegistrationFlowOutput, error) {
 	var output UpdateRegistrationFlowOutput
 
