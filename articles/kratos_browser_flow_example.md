@@ -13,20 +13,11 @@ published: true
 
 本記事では、ブラウザからkratosの各種self-service flowを実行する、golang と[HTMX](https://htmx.org/)を使用したサンプルコードの紹介と一部抜粋して解説します。
 
-:::message
-本記事のサンプルコードは、ory kratos v1.0.0を使用しています。
-
-ちょうどこの記事を書いている間に、[kratos v1.1.0がリリースされていました。](https://github.com/ory/kratos/releases/tag/v1.1.0)
-
-サンプルは最新版とは異なるため、ご注意ください。
-:::
-
-
 ## サンプルコード
 
 サンプルコードは以下のリポジトリです。
 
-@[card](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_0_0_selfservice)
+@[card](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_1_0_selfservice)
 
 解説は後述します。
 
@@ -151,7 +142,7 @@ Recovery flow完了時にセッションも発行されるため、作成され�
 
 改めて、サンプルコードのリポジトリは以下です。
 
-@[card](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_0_0_selfservice)
+@[card](https://github.com/YoshinoriSatoh/kratos_example/tree/kratos_v1_1_0_selfservice)
 
 ![](https://github.com/YoshinoriSatoh/zenn/blob/master/images/kratos_browser_flow_example/browser_flow_impl_structure.png?raw=true)
 
