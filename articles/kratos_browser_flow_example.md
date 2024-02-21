@@ -1,6 +1,6 @@
 ---
 title: HTMX を使用した kratos browser flow の実装サンプル
-emoji: ":lock" 
+emoji: ":lock:" 
 type: "tech" 
 topics: ["ory", "kratos", "authentication", "htmx", "golang"] 
 published: true
